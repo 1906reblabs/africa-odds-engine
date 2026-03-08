@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>African Betting Intelligence Network — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg:           #040404;
+    --surface:      #0a0a0a;
+    --surface-2:    #111111;
+    --border:       #1c1c1c;
+    --border-2:     #252525;
+    --text:         #d4d0c8;
+    --text-mid:     #888888;
+    --text-dim:     #444444;
+    --amber:        #c8973a;
+    --amber-bg:     rgba(200,151,58,0.07);
+    --amber-border: rgba(200,151,58,0.22);
+    --green:        #3a7d4a;
+    --green-text:   #5aaa72;
+    --green-bg:     rgba(58,125,74,0.08);
+    --red-text:     #aa5a5a;
+    --red-bg:       rgba(170,90,90,0.07);
+    --blue-text:    #5a82c8;
+    --blue-bg:      rgba(90,130,200,0.08);
+    --purple-text:  #9a72c8;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    line-height: 1.7;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 48px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    color: var(--amber);
+    text-transform: uppercase;
+  }
+  .header-nav { display: flex; gap: 2px; }
+  .nav-tab {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    padding: 6px 14px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+    text-decoration: none;
+  }
+  .nav-tab:hover { color: var(--text); border-color: var(--border-2); }
+  .nav-tab.active { color: var(--amber); border-color: var(--amber-border); background: var(--amber-bg); }
+  .status-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--green-text);
+    display: inline-block; margin-right: 8px;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* ── LAYOUT ── */
+  .page { display: none; padding: 40px 48px 80px; max-width: 1280px; margin: 0 auto; }
+  .page.active { display: block; }
+
+  /* ── PAGE HERO ── */
+  .hero {
+    margin-bottom: 48px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+  }
+  .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.3em;
+    color: var(--amber);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .eyebrow::before { content:''; display:block; width:20px; height:1px; background:var(--amber); }
+  h1 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 26px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 10px;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+  .subtitle { font-size: 14px; color: var(--text-mid); max-width: 580px; }
+  .meta-row { display: flex; gap: 24px; margin-top: 20px; flex-wrap: wrap; }
+  .meta-item { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text-dim); }
+  .meta-item strong { color: var(--amber); }
+
+  /* ── STAT CARDS ── */
+  .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border); margin-bottom: 40px; }
+  .stat-card {
+    background: var(--surface);
+    padding: 20px 22px;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--amber);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .stat-card:hover::before { opacity: 1; }
+  .stat-label { font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: 0.2em; color: var(--text-dim); text-transform: uppercase; margin-bottom: 10px; }
+  .stat-value { font-family: 'IBM Plex Mono', monospace; font-size: 28px; font-weight: 600; color: #fff; line-height: 1; margin-bottom: 6px; }
+  .stat-sub { font-size: 11px; color: var(--text-dim); }
+  .stat-value.amber { color: var(--amber); }
+  .stat-value.green { color: var(--green-text); }
+  .stat-value.red   { color: var(--red-text); }
+
+  /* ── SECTION HEADERS ── */
+  .section-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .section-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+  .section-action {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    color: var(--amber);
+    text-transform: uppercase;
+    cursor: pointer;
+    border: 1px solid var(--amber-border);
+    padding: 4px 10px;
+    background: var(--amber-bg);
+    transition: all 0.15s;
+  }
+  .section-action:hover { background: rgba(200,151,58,0.15); }
+
+  /* ── SIGNAL CARDS ── */
+  .signal-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: var(--border); margin-bottom: 40px; }
+  .signal-card {
+    background: var(--surface);
+    padding: 20px 22px;
+    border-left: 3px solid transparent;
+    transition: all 0.15s;
+    cursor: default;
+  }
+  .signal-card:hover { background: var(--surface-2); }
+  .signal-card.strong { border-left-color: var(--amber); }
+  .signal-card.buy    { border-left-color: var(--green); }
+  .signal-card.spec   { border-left-color: #555; }
+
+  .signal-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+  .signal-league { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.15em; color: var(--text-dim); text-transform: uppercase; }
+  .signal-conf { font-family: 'IBM Plex Mono', monospace; font-size: 10px; }
+
+  .signal-match { font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #fff; margin-bottom: 6px; font-weight: 500; }
+  .signal-market { font-size: 12px; color: var(--text-mid); margin-bottom: 12px; }
+  .signal-market span { color: var(--amber); font-weight: 500; }
+
+  .signal-row { display: flex; gap: 20px; margin-bottom: 10px; }
+  .signal-kv { }
+  .signal-k { font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: 0.15em; color: var(--text-dim); text-transform: uppercase; margin-bottom: 2px; }
+  .signal-v { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--text); }
+  .signal-v.amber { color: var(--amber); }
+  .signal-v.green { color: var(--green-text); }
+
+  .conf-bar { height: 3px; background: var(--border-2); margin-top: 12px; }
+  .conf-fill { height: 100%; background: var(--amber); transition: width 0.8s ease; }
+
+  .signal-insight { font-size: 11px; color: var(--text-dim); margin-top: 10px; line-height: 1.6; padding-top: 10px; border-top: 1px solid var(--border); }
+
+  /* ── CHART ── */
+  .chart-wrap { background: var(--surface); border: 1px solid var(--border); padding: 24px; margin-bottom: 40px; }
+  .chart-title { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.2em; color: var(--text-dim); text-transform: uppercase; margin-bottom: 18px; }
+
+  /* ── TABLE ── */
+  .data-table { width: 100%; border-collapse: collapse; margin-bottom: 32px; font-size: 12px; }
+  .data-table th { font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: 0.2em; color: var(--text-dim); text-transform: uppercase; text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); font-weight: 400; }
+  .data-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text-mid); vertical-align: top; }
+  .data-table td:first-child { font-family: 'IBM Plex Mono', monospace; color: var(--text); font-size: 11px; }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: var(--surface-2); }
+  .tag { display: inline-block; font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.1em; padding: 2px 7px; border: 1px solid; text-transform: uppercase; }
+  .tag-free    { color: var(--green-text); border-color: var(--green); }
+  .tag-paid    { color: var(--amber); border-color: var(--amber-border); }
+  .tag-opt     { color: var(--text-dim); border-color: var(--border-2); }
+  .tag-active  { color: var(--green-text); border-color: var(--green); }
+  .tag-intl    { color: var(--blue-text); border-color: rgba(90,130,200,0.3); }
+  .tag-cont    { color: var(--purple-text); border-color: rgba(154,114,200,0.3); }
+
+  /* ── CALLOUT ── */
+  .callout {
+    padding: 14px 18px; margin-bottom: 20px; border: 1px solid;
+    display: flex; gap: 12px; align-items: flex-start;
+  }
+  .callout-icon { font-size: 13px; flex-shrink: 0; margin-top: 2px; }
+  .callout.warning { background: var(--amber-bg); border-color: var(--amber-border); color: var(--amber); }
+  .callout.success { background: var(--green-bg); border-color: rgba(90,170,114,0.2); color: var(--green-text); }
+  .callout.info    { background: var(--blue-bg); border-color: rgba(90,130,200,0.25); color: var(--blue-text); }
+  .callout-body { flex: 1; }
+  .callout-title { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 4px; font-weight: 500; }
+  .callout-text  { font-size: 12px; color: var(--text-mid); line-height: 1.6; }
+
+  /* ── DEPLOY STEPS ── */
+  .deploy-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: var(--border); margin-bottom: 32px; }
+  .deploy-step { background: var(--surface); padding: 22px 24px; }
+  .step-num { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.2em; color: var(--amber); text-transform: uppercase; margin-bottom: 8px; }
+  .step-name { font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #fff; margin-bottom: 6px; font-weight: 500; }
+  .step-desc { font-size: 12px; color: var(--text-dim); line-height: 1.6; }
+  .step-time { font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: var(--text-dim); margin-top: 10px; letter-spacing: 0.1em; }
+
+  /* ── CODE ── */
+  pre {
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-left: 3px solid var(--amber);
+    padding: 14px 18px; overflow-x: auto; margin-bottom: 16px; position: relative;
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text); line-height: 1.7;
+  }
+  code { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--amber); background: var(--surface-2); padding: 1px 5px; border: 1px solid var(--border); }
+  pre code { color: var(--text); background: none; padding: 0; border: none; }
+  .copy-btn {
+    position: absolute; top: 7px; right: 9px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: 0.15em;
+    color: var(--text-dim); text-transform: uppercase; background: none;
+    border: 1px solid var(--border-2); padding: 3px 7px; cursor: pointer; transition: all 0.2s;
+  }
+  .copy-btn:hover { color: var(--amber); border-color: var(--amber); }
+
+  /* ── MONETISATION ── */
+  .mono-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); margin-bottom: 32px; }
+  .mono-card { background: var(--surface); padding: 22px 22px; }
+  .mono-title { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #fff; font-weight: 500; margin-bottom: 8px; }
+  .mono-price { font-family: 'IBM Plex Mono', monospace; font-size: 22px; color: var(--amber); margin-bottom: 8px; }
+  .mono-price span { font-size: 11px; color: var(--text-dim); }
+  .mono-desc { font-size: 11px; color: var(--text-dim); line-height: 1.7; }
+
+  /* ── LEAGUE GRID ── */
+  .league-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); margin-bottom: 32px; }
+  .league-card { background: var(--surface); padding: 16px 18px; }
+  .league-name { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text); margin-bottom: 4px; font-weight: 500; }
+  .league-country { font-size: 11px; color: var(--text-dim); margin-bottom: 10px; }
+  .league-edge { font-size: 11px; color: var(--text-dim); line-height: 1.5; }
+
+  /* ── FOOTER ── */
+  .footer { border-top: 1px solid var(--border); padding: 24px 48px; display: flex; justify-content: space-between; align-items: center; }
+  .footer-logo { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.25em; color: var(--text-dim); text-transform: uppercase; }
+  .footer-links { display: flex; gap: 20px; }
+  .footer-link { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.15em; color: var(--text-dim); text-transform: uppercase; text-decoration: none; transition: color 0.15s; }
+  .footer-link:hover { color: var(--amber); }
+
+  @media (max-width: 900px) {
+    .header { padding: 0 20px; }
+    .page { padding: 24px 20px 60px; }
+    .stat-grid, .signal-grid, .deploy-grid, .mono-grid, .league-grid { grid-template-columns: 1fr; }
+    .signal-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo"><span class="status-dot"></span>ABIN</div>
+  <nav class="header-nav">
+    <a class="nav-tab active" onclick="show('signals', this)">Signals</a>
+    <a class="nav-tab" onclick="show('leagues', this)">Leagues</a>
+    <a class="nav-tab" onclick="show('deploy', this)">Deploy</a>
+    <a class="nav-tab" onclick="show('monetise', this)">Monetise</a>
+  </nav>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- PAGE: SIGNALS                                                   -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="page active" id="page-signals">
+
+  <div class="hero">
+    <div class="eyebrow">African Betting Intelligence Network</div>
+    <h1>Live Signal Dashboard</h1>
+    <p class="subtitle">10 competitions · 5 bookmakers · Automated Poisson model · 7–10 signals per week</p>
+    <div class="meta-row">
+      <span class="meta-item">Engine: <strong>Running</strong></span>
+      <span class="meta-item">Cycle: <strong>Every 4 hours</strong></span>
+      <span class="meta-item">Competitions: <strong>10</strong></span>
+      <span class="meta-item">Bookmakers: <strong>5</strong></span>
+    </div>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-label">This week</div>
+      <div class="stat-value amber" id="stat-week">—</div>
+      <div class="stat-sub">signals published</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Win rate</div>
+      <div class="stat-value green" id="stat-rate">—</div>
+      <div class="stat-sub">resolved signals</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Avg confidence</div>
+      <div class="stat-value" id="stat-conf">—</div>
+      <div class="stat-sub">this week</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Next cycle</div>
+      <div class="stat-value" id="stat-next">—</div>
+      <div class="stat-sub">SAST</div>
+    </div>
+  </div>
+
+  <!-- Chart -->
+  <div class="chart-wrap">
+    <div class="chart-title">Confidence distribution — last 30 signals</div>
+    <canvas id="confChart" height="80"></canvas>
+  </div>
+
+  <!-- Demo signal cards -->
+  <div class="section-head">
+    <div class="section-title">Latest Signals</div>
+    <div class="section-action" onclick="refreshDemo()">↻ Refresh</div>
+  </div>
+
+  <div class="signal-grid" id="signalGrid">
+    <!-- injected by JS -->
+  </div>
+
+  <div class="callout success">
+    <span class="callout-icon">✓</span>
+    <div class="callout-body">
+      <div class="callout-title">How signals reach subscribers</div>
+      <div class="callout-text">In <strong>admin mode</strong>: signals appear in your review queue → you approve → published to channel.<br>In <strong>auto mode</strong>: signals publish directly after passing the confidence threshold (≥65/100).</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- PAGE: LEAGUES                                                   -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-leagues">
+  <div class="hero">
+    <div class="eyebrow">Competition Coverage</div>
+    <h1>10 African Competitions</h1>
+    <p class="subtitle">Domestic leagues, continental cups, and international windows. Each with African-specific edge notes.</p>
+  </div>
+
+  <div class="league-grid">
+    <div class="league-card">
+      <div class="league-name">PSL — Premier Soccer League</div>
+      <div class="league-country">🇿🇦 South Africa · Priority 1</div>
+      <div style="margin-bottom:8px"><span class="tag tag-active">Active</span></div>
+      <div class="league-edge">Home advantage systematically overpriced. Away form in SA undervalued by global models. Squad rotation during CAF weeks creates pricing gaps.</div>
+    </div>
+    <div class="league-card">
+      <div class="league-name">NFD — National First Division</div>
+      <div class="league-country">🇿🇦 South Africa · Priority 2</div>
+      <div style="margin-bottom:8px"><span class="tag tag-active">Active</span></div>
+      <div class="league-edge">Extremely low global bookmaker attention. Largest domestic information asymmetry. Local ground conditions never priced in.</div>
+    </div>
+    <div class="league-card">
+      <div class="league-name">NPFL — Nigeria Premier Football League</div>
+      <div class="league-country">🇳🇬 Nigeria · Priority 3</div>
+      <div style="margin-bottom:8px"><span class="tag tag-active">Active</span></div>
+      <div class="league-edge">Heavily undertracked by global bookmakers. Largest information asymmetry. Local travel fatigue is systematically unpriced.</div>
+    </div>
+    <div class="league-card">
+      <div class="league-name">Botola Pro — Moroccan Premier League</div>
+      <div class="league-country">🇲🇦 Morocco · Priority 4</div>
+      <div style="margin-bottom:8px"><span class="tag tag-active">Active</span></div>
+      <div class="league-edge">Undertracked despite Morocco World Cup exposure. Ramadan schedule disruption ignored. Desert heat effects unpriced.</div>
+    </div>
+    <div class="league-card">
+      <div class="league-name">Egyptian Premier League</div>
+      <div class="league-country">🇪🇬 Egypt · Priority 5</div>
+      <div style="margin-bottom:8px"><span class="tag tag-active">Active</span></div>
+      <div class="league-edge">Al Ahly and Zamalek dominance creates extreme odds compression. Strong underdog value in away fixtures. Ramadan effects ignored.</div>
+    </div>
+    <div class="league-card">
+      <div class="league-name">KPL — Kenyan Premier League</div>
+      <div class="league-country">🇰🇪 Kenya · Priority 6</div>
+      <div style="margin-bottom:8px"><span class="tag tag-active">Active</span></div>
+      <div class="league-edge">Near-zero global attention. Nairobi altitude unpriced. Derby square money creates underdog value on Gor Mahia / AFC Leopards fixtures.</div>
+    </div>
+    <div class="league-card">
+      <div class="league-name">CAF Champions League</div>
+      <div class="league-country">🌍 Africa (multi) · Priority 7</div>
+      <div style="margin-bottom:8px"><span class="tag tag-cont">Continental</span></div>
+      <div class="league-edge">Cross-country travel fatigue massively underpriced. Altitude effects (Ethiopian venues) rarely priced. Weather differences ignored.</div>
+    </div>
+    <div class="league-card">
+      <div class="league-name">CAF Confederation Cup</div>
+      <div class="league-country">🌍 Africa (multi) · Priority 8</div>
+      <div style="margin-bottom:8px"><span class="tag tag-cont">Continental</span></div>
+      <div class="league-edge">Less covered than CAF CL — even larger information gaps. Many matches priced on reputation, not current form.</div>
+    </div>
+    <div class="league-card">
+      <div class="league-name">CHAN — African Nations Championship</div>
+      <div class="league-country">🌍 Africa · Priority 9</div>
+      <div style="margin-bottom:8px"><span class="tag tag-intl">International</span></div>
+      <div class="league-edge">Home-based players only — bookmakers use stale club ratings. Largest model-vs-market gap of any African competition.</div>
+    </div>
+    <div class="league-card">
+      <div class="league-name">AFCON Qualifiers</div>
+      <div class="league-country">🌍 Africa · Priority 10</div>
+      <div style="margin-bottom:8px"><span class="tag tag-intl">International</span></div>
+      <div class="league-edge">Club-vs-country conflicts unpriced. Largest form variance of any international tier. Home crowd at African venues dramatically underpriced.</div>
+    </div>
+  </div>
+
+  <div class="section-head" style="margin-top:40px"><div class="section-title">Bookmakers Monitored (5)</div></div>
+  <table class="data-table">
+    <thead><tr><th>Bookmaker</th><th>Type</th><th>Region</th><th>Weight</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Betway</td><td><span class="tag tag-paid">Retail</span></td><td>Africa</td><td>1.3×</td><td>Primary SA/African bookmaker. Slow to react to sharp money.</td></tr>
+      <tr><td>Hollywoodbets</td><td><span class="tag tag-paid">Retail</span></td><td>South Africa</td><td>1.2×</td><td>Major SA bookmaker. PSL-focused — key SA reference.</td></tr>
+      <tr><td>Bet365</td><td><span class="tag tag-free">Sharp</span></td><td>Global</td><td>1.0×</td><td>Global sharp reference. Often the "true" market line.</td></tr>
+      <tr><td>William Hill</td><td><span class="tag tag-free">Sharp</span></td><td>Global</td><td>0.9×</td><td>Secondary sharp reference. Compare with Bet365 for consensus.</td></tr>
+      <tr><td>1xBet</td><td><span class="tag tag-paid">Retail</span></td><td>Africa</td><td>1.1×</td><td>Strong African presence. Often carries exploitable overrounds on African fixtures.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- PAGE: DEPLOY                                                    -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-deploy">
+  <div class="hero">
+    <div class="eyebrow">Deployment Guide</div>
+    <h1>Live in 30 minutes.<br>Zero cost.</h1>
+    <p class="subtitle">GitHub → GitHub Actions (cron) → Telegram. No server. No DevOps experience needed.</p>
+    <div class="meta-row">
+      <span class="meta-item">Time: <strong>~30 min</strong></span>
+      <span class="meta-item">Cost: <strong>R0/month</strong></span>
+      <span class="meta-item">Steps: <strong>6</strong></span>
+    </div>
+  </div>
+
+  <div class="deploy-grid">
+    <div class="deploy-step">
+      <div class="step-num">Step 01</div>
+      <div class="step-name">Create Telegram Bot</div>
+      <div class="step-desc">Open Telegram → search <code>@BotFather</code> → send <code>/newbot</code> → follow instructions → copy the API token.</div>
+      <div class="step-time">⏱ 3 minutes</div>
+    </div>
+    <div class="deploy-step">
+      <div class="step-num">Step 02</div>
+      <div class="step-name">Create 2 Telegram Channels</div>
+      <div class="step-desc">Channel 1: <strong>Main</strong> (private, subscribers join here). Channel 2: <strong>Admin Review</strong> (private, only you). Add your bot as Admin with Post Messages permission to both.</div>
+      <div class="step-time">⏱ 5 minutes</div>
+    </div>
+    <div class="deploy-step">
+      <div class="step-num">Step 03</div>
+      <div class="step-name">Get Free API Keys</div>
+      <div class="step-desc">
+        · <strong>the-odds-api.com</strong> — free 500 req/month<br>
+        · <strong>rapidapi.com</strong> → API-Football — free 100/day<br>
+        · <strong>football-data.org</strong> — free tier
+      </div>
+      <div class="step-time">⏱ 8 minutes</div>
+    </div>
+    <div class="deploy-step">
+      <div class="step-num">Step 04</div>
+      <div class="step-name">Fork Repo &amp; Add Secrets</div>
+      <div class="step-desc">Fork this repo on GitHub → Settings → Secrets → Actions → add: <code>BOT_TOKEN</code>, <code>CHANNEL_ID</code>, <code>ADMIN_ID</code>, <code>ADMIN_CHANNEL_ID</code>, <code>THE_ODDS_API_KEY</code>, <code>RAPID_API_KEY</code>, <code>PUBLISH_MODE</code></div>
+      <div class="step-time">⏱ 7 minutes</div>
+    </div>
+    <div class="deploy-step">
+      <div class="step-num">Step 05</div>
+      <div class="step-name">Enable GitHub Actions</div>
+      <div class="step-desc">Repo → Actions tab → Enable workflows → Click "Run workflow" on <code>scheduler.yml</code> to trigger the first run manually.</div>
+      <div class="step-time">⏱ 2 minutes</div>
+    </div>
+    <div class="deploy-step">
+      <div class="step-num">Step 06</div>
+      <div class="step-name">Verify End-to-End</div>
+      <div class="step-desc">Watch the Actions log. Check your admin review channel for the first signal card. Approve it. Verify it appears in the main channel.</div>
+      <div class="step-time">⏱ 5 minutes</div>
+    </div>
+  </div>
+
+  <div class="callout warning">
+    <span class="callout-icon">⚠</span>
+    <div class="callout-body">
+      <div class="callout-title">GitHub Actions free tier</div>
+      <div class="callout-text">Free plan: 2,000 minutes/month. ABIN uses ~1,800 min/month (6 runs/day × ~10 min). If you exceed this, reduce the cron to every 6 hours. Never costs more than ~$4/month to upgrade to GitHub Pro.</div>
+    </div>
+  </div>
+
+  <div class="section-head" style="margin-top:40px"><div class="section-title">Required Secrets (GitHub → Settings → Secrets → Actions)</div></div>
+  <table class="data-table">
+    <thead><tr><th>Secret</th><th>Required</th><th>How to get it</th></tr></thead>
+    <tbody>
+      <tr><td>BOT_TOKEN</td><td><span class="tag" style="color:var(--red-text);border-color:rgba(170,90,90,0.3)">Required</span></td><td>@BotFather → /newbot → API token</td></tr>
+      <tr><td>CHANNEL_ID</td><td><span class="tag" style="color:var(--red-text);border-color:rgba(170,90,90,0.3)">Required</span></td><td>Forward channel msg to @userinfobot</td></tr>
+      <tr><td>ADMIN_ID</td><td><span class="tag" style="color:var(--red-text);border-color:rgba(170,90,90,0.3)">Required</span></td><td>Message @userinfobot from your account</td></tr>
+      <tr><td>THE_ODDS_API_KEY</td><td><span class="tag" style="color:var(--red-text);border-color:rgba(170,90,90,0.3)">Required</span></td><td>the-odds-api.com → sign up → API Key tab</td></tr>
+      <tr><td>RAPID_API_KEY</td><td><span class="tag tag-opt">Recommended</span></td><td>rapidapi.com → API-Football → subscribe free</td></tr>
+      <tr><td>PUBLISH_MODE</td><td><span class="tag" style="color:var(--red-text);border-color:rgba(170,90,90,0.3)">Required</span></td><td>Set to <code>admin</code> or <code>auto</code></td></tr>
+      <tr><td>ADMIN_CHANNEL_ID</td><td><span class="tag tag-opt">Recommended</span></td><td>Your admin review channel ID</td></tr>
+      <tr><td>MAILGUN_API_KEY</td><td><span class="tag tag-opt">Optional</span></td><td>mailgun.com → free 3k emails/month</td></tr>
+      <tr><td>ADMIN_EMAIL</td><td><span class="tag tag-opt">Optional</span></td><td>Your email for weekly audit digests</td></tr>
+    </tbody>
+  </table>
+
+  <div class="section-head" style="margin-top:40px"><div class="section-title">Automated Schedule</div></div>
+  <pre><code># .github/workflows/scheduler.yml — runs automatically
+# Every 4 hours (UTC):
+0 */4 * * *   → Full cycle: fetch + engine + dispatch
+0 4 * * 4     → Thursday 06:00 SAST: weekly audit email
+0 22 * * 0    → Monday 00:00 SAST: weekly counter reset
+Manual        → International window toggle (AFCON Qual)</code></pre>
+
+  <div class="section-head" style="margin-top:40px"><div class="section-title">Monthly Cost Breakdown</div></div>
+  <table class="data-table">
+    <thead><tr><th>Service</th><th>Cost</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>GitHub</td><td>R0</td><td>Free private repos + 2,000 Actions min/month</td></tr>
+      <tr><td>The Odds API</td><td>R0</td><td>500 req/month free tier</td></tr>
+      <tr><td>API-Football</td><td>R0</td><td>100 req/day free tier</td></tr>
+      <tr><td>Mailgun</td><td>R0</td><td>3,000 emails/month free</td></tr>
+      <tr><td>Telegram</td><td>R0</td><td>Free forever</td></tr>
+      <tr><td><strong>Total</strong></td><td><strong>R0</strong></td><td>Break-even at 1 subscriber</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- PAGE: MONETISE                                                  -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-monetise">
+  <div class="hero">
+    <div class="eyebrow">Revenue Strategy</div>
+    <h1>Multiple revenue streams.<br>Break-even at 1 subscriber.</h1>
+    <p class="subtitle">Five models that stack. Monthly running cost: R0. Break-even at R99/month revenue.</p>
+  </div>
+
+  <div class="mono-grid">
+    <div class="mono-card">
+      <div class="mono-title">Premium Telegram</div>
+      <div class="mono-price">R99 <span>/ month</span></div>
+      <div class="mono-desc">Weekly subscription to the private signal channel. 7–10 signals per week. Auto-renews via PayFast. Founding member rate locked at R199/month for first 50 slots.</div>
+    </div>
+    <div class="mono-card">
+      <div class="mono-title">Founding Member</div>
+      <div class="mono-price">R199 <span>/ month</span></div>
+      <div class="mono-desc">First 50 only. Locked rate forever. WhatsApp delivery included. Early access to signals. Priority during high-volume weeks. Social proof for launch.</div>
+    </div>
+    <div class="mono-card">
+      <div class="mono-title">Per-Signal Access</div>
+      <div class="mono-price">R20 <span>/ signal</span></div>
+      <div class="mono-desc">No commitment. Buy a single high-confidence signal with full reasoning. Good for casual bettors or trial conversion before subscribing.</div>
+    </div>
+    <div class="mono-card">
+      <div class="mono-title">Affiliate Revenue</div>
+      <div class="mono-price">R50–R500 <span>/ referral</span></div>
+      <div class="mono-desc">Partner with Betway, Hollywoodbets, and 1xBet. Each subscriber click on your affiliate link earns commission. Enable via <code>INCLUDE_AFFILIATES=true</code> in config.</div>
+    </div>
+    <div class="mono-card">
+      <div class="mono-title">Weekly Intelligence Report</div>
+      <div class="mono-price">R149 <span>/ report</span></div>
+      <div class="mono-desc">PDF report: all signals, model reasoning, post-mortems, accuracy stats. Sell to serious bettors and syndicates who want data depth beyond the channel.</div>
+    </div>
+    <div class="mono-card">
+      <div class="mono-title">B2B Data Licensing</div>
+      <div class="mono-price">R2,000+ <span>/ month</span></div>
+      <div class="mono-desc">License the raw signal feed, Poisson model output, or bookmaker odds data to betting syndicates, sports media, or other operators. Long-term upside.</div>
+    </div>
+  </div>
+
+  <div class="callout success">
+    <span class="callout-icon">✓</span>
+    <div class="callout-body">
+      <div class="callout-title">Break-even math</div>
+      <div class="callout-text">Running cost: R0/month. One weekly subscriber at R99 = profitable from day one. 10 subscribers = R990/month. 50 founding members at R199 = R9,950/month recurring. Affiliates and per-signal sales are pure upside on top.</div>
+    </div>
+  </div>
+
+  <div class="section-head" style="margin-top:40px"><div class="section-title">PayFast Setup (SA Payments)</div></div>
+  <table class="data-table">
+    <thead><tr><th>Step</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr><td>1. Register</td><td>payfast.co.za → Register → Business account. Need SA ID + banking details.</td></tr>
+      <tr><td>2. Get credentials</td><td>Dashboard → Settings → Integration → copy Merchant ID + Merchant Key.</td></tr>
+      <tr><td>3. Set passphrase</td><td>Integration → Set Passphrase → add to PAYFAST_PASSPHRASE secret.</td></tr>
+      <tr><td>4. Set notify URL</td><td>Integration → ITN URL → <code>https://yourdomain.co.za/api/payfast/notify</code></td></tr>
+      <tr><td>5. Test sandbox</td><td>Set PAYFAST_SANDBOX=true → use sandbox.payfast.co.za test cards → verify full flow.</td></tr>
+      <tr><td>6. Go live</td><td>Change PAYFAST_SANDBOX=false in your deployment environment.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="section-head" style="margin-top:40px"><div class="section-title">Growth Roadmap</div></div>
+  <table class="data-table">
+    <thead><tr><th>Phase</th><th>Milestone</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr><td>Launch</td><td>0 → 10 subscribers</td><td>Recruit founding members from Twitter/X, Reddit, WhatsApp groups. Share weekly performance publicly.</td></tr>
+      <tr><td>Establish</td><td>10 → 50 subscribers</td><td>Publish weekly post-mortems openly. Add affiliate links. Launch per-signal option.</td></tr>
+      <tr><td>Scale</td><td>50 → 200 subscribers</td><td>Launch weekly PDF report. Approach Betway/Hollywoodbets affiliate managers directly.</td></tr>
+      <tr><td>Expand</td><td>B2B</td><td>License signal feed to syndicates. Add ML model. Add European leagues.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<footer class="footer">
+  <div class="footer-logo">African Betting Intelligence Network</div>
+  <div class="footer-links">
+    <a class="footer-link" href="https://github.com" target="_blank">GitHub</a>
+    <a class="footer-link" href="https://t.me" target="_blank">Telegram</a>
+    <a class="footer-link" href="https://the-odds-api.com" target="_blank">Odds API</a>
+  </div>
+</footer>
+
+<script>
+// ── TAB NAVIGATION ──────────────────────────────────────────────────
+function show(name, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  el.classList.add('active');
+}
+
+// ── DEMO SIGNALS ────────────────────────────────────────────────────
+const DEMO_SIGNALS = [
+  { league:'PSL — Premier Soccer League', home:'Mamelodi Sundowns', away:'Orlando Pirates',
+    market:'Goals Over 2.5', outcome:'Over', odds:2.10, conf:82, edge:'+14.2%',
+    insight:'Model projects 1.65–1.22 xG. Both teams averaging 2.8 goals/match. Sharp money shortened from 2.35 to 2.10.', tier:'strong' },
+  { league:'Egyptian Premier League', home:'Al Ahly', away:'Pyramids FC',
+    market:'Match Winner', outcome:'Home Win', odds:1.75, conf:74, edge:'+8.6%',
+    insight:'Al Ahly 8 wins from last 10 at Cairo Stadium. Pyramids xGA = 1.8/game. Bet365 vs Hollywoodbets 12% divergence.', tier:'buy' },
+  { league:'CAF Champions League', home:'TP Mazembe', away:'Petro de Luanda',
+    market:'Both Teams to Score', outcome:'Yes', odds:2.20, conf:71, edge:'+11.0%',
+    insight:'Cross-border travel 4,200km for Petro. Mazembe home record in Lubumbashi: 87% BTTS last 8. Altitude unpriced by global books.', tier:'buy' },
+  { league:'NPFL — Nigeria Premier Football League', home:'Enyimba FC', away:'Rivers United',
+    market:'Goals Over 1.5', outcome:'Over', odds:1.88, conf:68, edge:'+7.4%',
+    insight:'NPFL most undertracked league in dataset. Enyimba home xG = 2.1. Travel Aba → Port Harcourt fatigue unpriced.', tier:'buy' },
+  { league:'Botola Pro — Morocco', home:'Wydad AC', away:'Raja CA',
+    market:'Match Winner', outcome:'Home Win', odds:2.00, conf:65, edge:'+6.0%',
+    insight:'Wydad strong form last 5 (4W 1D). Raja missing 2 key midfielders. Casablanca derby historically: 55% home win rate.', tier:'buy' },
+  { league:'KPL — Kenyan Premier League', home:'Gor Mahia', away:'AFC Leopards',
+    market:'Goals Over 2.5', outcome:'Over', odds:2.35, conf:63, edge:'+5.1%',
+    insight:'Nairobi derby attracts square money on under — model finds over value. Both teams average 2.4 combined goals in derbies.', tier:'spec' },
+];
+
+function renderSignals(sigs) {
+  const grid = document.getElementById('signalGrid');
+  grid.innerHTML = sigs.map(s => {
+    const icon = s.conf >= 80 ? '🔥' : s.conf >= 65 ? '✅' : '⚠️';
+    const pct  = s.conf;
+    return `
+      <div class="signal-card ${s.tier}">
+        <div class="signal-header">
+          <div class="signal-league">${s.league}</div>
+          <div class="signal-conf" style="color:${s.conf>=80?'var(--amber)':s.conf>=65?'var(--green-text)':'var(--text-dim)'}">${icon} ${s.conf}/100</div>
+        </div>
+        <div class="signal-match">${s.home} vs ${s.away}</div>
+        <div class="signal-market">${s.market} — <span>${s.outcome}</span></div>
+        <div class="signal-row">
+          <div class="signal-kv"><div class="signal-k">Odds</div><div class="signal-v amber">${s.odds}</div></div>
+          <div class="signal-kv"><div class="signal-k">Edge</div><div class="signal-v green">${s.edge}</div></div>
+          <div class="signal-kv"><div class="signal-k">Status</div><div class="signal-v">Queued</div></div>
+        </div>
+        <div class="conf-bar"><div class="conf-fill" style="width:${pct}%"></div></div>
+        <div class="signal-insight">${s.insight}</div>
+      </div>`;
+  }).join('');
+}
+
+function refreshDemo() {
+  const shuffled = [...DEMO_SIGNALS].sort(() => 0.5 - Math.random());
+  renderSignals(shuffled);
+}
+
+// ── STATS ────────────────────────────────────────────────────────────
+function updateStats() {
+  document.getElementById('stat-week').textContent = '7';
+  document.getElementById('stat-rate').textContent = '71%';
+  document.getElementById('stat-conf').textContent = '72';
+  const now   = new Date();
+  const next  = new Date(now);
+  next.setUTCHours(Math.ceil(now.getUTCHours() / 4) * 4, 0, 0, 0);
+  const sast  = new Date(next.getTime() + 2 * 60 * 60 * 1000);
+  document.getElementById('stat-next').textContent =
+    sast.toLocaleTimeString('en-ZA', { hour:'2-digit', minute:'2-digit' });
+}
+
+// ── CHART ────────────────────────────────────────────────────────────
+function buildChart() {
+  const ctx = document.getElementById('confChart').getContext('2d');
+  const labels = ['<50','50–59','60–64','65–69','70–74','75–79','80–84','85+'];
+  const data   = [2, 3, 4, 6, 8, 4, 2, 1];
+  Chart.defaults.color = '#444';
+  Chart.defaults.borderColor = '#1c1c1c';
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Signals',
+        data,
+        backgroundColor: data.map((_, i) =>
+          i < 3 ? 'rgba(170,90,90,0.4)' : i < 5 ? 'rgba(200,151,58,0.5)' : 'rgba(90,170,114,0.55)'),
+        borderColor: data.map((_, i) =>
+          i < 3 ? '#aa5a5a' : i < 5 ? '#c8973a' : '#5aaa72'),
+        borderWidth: 1,
+      }],
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: '#1a1a1a' }, ticks: { font: { family: 'IBM Plex Mono', size: 10 } } },
+        y: { grid: { color: '#1a1a1a' }, ticks: { font: { family: 'IBM Plex Mono', size: 10 }, stepSize: 2 } },
+      },
+    },
+  });
+}
+
+// ── INIT ─────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  renderSignals(DEMO_SIGNALS);
+  updateStats();
+  buildChart();
+});
+</script>
+</body>
+</html>
