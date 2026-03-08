@@ -1,0 +1,7 @@
+requests
+pandas
+beautifulsoup4
+python-telegram-bot
+numpy
+schedule
+pytest
