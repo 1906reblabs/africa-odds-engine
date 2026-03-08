@@ -1,0 +1,336 @@
+# ════════════════════════════════════════════════════════════════════
+# AFRICAN BETTING INTELLIGENCE NETWORK — GitHub Actions Workflows
+# ════════════════════════════════════════════════════════════════════
+#
+# SAVE EACH SECTION AS A SEPARATE FILE in .github/workflows/
+#
+# Required GitHub Secrets (Settings → Secrets and variables → Actions):
+#   BOT_TOKEN             — Telegram bot token from @BotFather
+#   CHANNEL_ID            — Main Telegram channel ID (-1001234567890)
+#   ADMIN_ID              — Your Telegram user/chat ID
+#   ADMIN_CHANNEL_ID      — (Optional) Admin review channel ID
+#   THE_ODDS_API_KEY      — the-odds-api.com (free tier)
+#   RAPID_API_KEY         — rapidapi.com / API-Football (free)
+#   FOOTBALL_DATA_API_KEY — football-data.org (free)
+#   PUBLISH_MODE          — 'auto' or 'admin'
+#   ADMIN_USER            — admin username
+#   ADMIN_PASS            — strong passphrase (change default!)
+#   ADMIN_EMAIL           — receives weekly audit emails
+#   PAYFAST_MERCHANT_ID   — PayFast merchant ID
+#   PAYFAST_MERCHANT_KEY  — PayFast merchant key
+#   PAYFAST_PASSPHRASE    — PayFast passphrase
+#   SITE_URL              — your deployed site URL
+#   MAILGUN_API_KEY       — Mailgun (free 3k emails/month)
+#   MAILGUN_DOMAIN        — e.g. mg.abin.co.za
+#
+# Cron schedule summary:
+#   scheduler.yml        Every 4h (6x daily)         0 */4 * * *
+#   weekly-audit.yml     Thursday 06:00 SAST          0 4 * * 4
+#   weekly-reset.yml     Monday 00:00 SAST            0 22 * * 0
+#   intl-window.yml      Manual only (FIFA windows)
+#
+# GitHub Actions free tier: 2,000 min/month
+# Estimated ABIN usage:     ~1,800 min/month (6 runs × 10min × 30 days)
+# ════════════════════════════════════════════════════════════════════
+
+
+# ────────────────────────────────────────────────────────────────────
+# FILE 1: .github/workflows/scheduler.yml
+# SCHEDULE: Every 4 hours — 6 times per day
+# PURPOSE:  Fetch odds + fixtures → run signal engine → dispatch signals
+# ────────────────────────────────────────────────────────────────────
+
+name: ABIN — Signal Engine (4h Cycle)
+
+on:
+  schedule:
+    # Every 4 hours at minute 0 (UTC)
+    # 00:00, 04:00, 08:00, 12:00, 16:00, 20:00 UTC
+    # = 02:00, 06:00, 10:00, 14:00, 18:00, 22:00 SAST
+    - cron: '0 */4 * * *'
+  workflow_dispatch:
+    inputs:
+      league_override:
+        description: 'Override active leagues (comma-separated, e.g. psl,caf_cl)'
+        required: false
+        default: ''
+      publish_mode:
+        description: 'Publish mode for this run'
+        required: false
+        type: choice
+        options: ['', 'auto', 'admin']
+      dry_run:
+        description: 'Dry run — generate signals but skip Telegram delivery'
+        required: false
+        default: 'false'
+        type: choice
+        options: ['false', 'true']
+
+jobs:
+
+  # ── Job 1: Run test suite before any live actions ──────────────────
+  test:
+    name: Run Test Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run 43-test offline suite
+        run: python3 tests/test_engine.py
+        env:
+          PUBLISH_MODE: auto  # no Telegram needed for tests
+
+  # ── Job 2: Main engine run ─────────────────────────────────────────
+  run-engine:
+    name: Fetch → Signal Engine → Dispatch
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: test   # only runs if all tests pass
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Restore data cache (preserves weekly counters)
+        uses: actions/cache@v4
+        with:
+          path: /tmp/abin-data
+          key: abin-data-${{ github.run_id }}
+          restore-keys: |
+            abin-data-
+
+      - name: Run full pipeline
+        env:
+          # Telegram
+          BOT_TOKEN:             ${{ secrets.BOT_TOKEN }}
+          CHANNEL_ID:            ${{ secrets.CHANNEL_ID }}
+          ADMIN_ID:              ${{ secrets.ADMIN_ID }}
+          ADMIN_CHANNEL_ID:      ${{ secrets.ADMIN_CHANNEL_ID }}
+          PUBLISH_MODE:          ${{ github.event.inputs.publish_mode || secrets.PUBLISH_MODE || 'admin' }}
+          # Data APIs
+          THE_ODDS_API_KEY:      ${{ secrets.THE_ODDS_API_KEY }}
+          RAPID_API_KEY:         ${{ secrets.RAPID_API_KEY }}
+          FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
+          LEAGUE_OVERRIDE:       ${{ github.event.inputs.league_override }}
+          # Engine config
+          DATA_DIR:              /tmp/abin-data
+          SIGNALS_PER_CYCLE:     '7'
+          WEEKLY_SIGNAL_CAP:     '10'
+          MIN_SIGNALS_EXPECTED:  '7'
+          CONFIDENCE_THRESHOLD:  '65'
+          HARD_REJECT_BELOW:     '50'
+          DRY_RUN:               ${{ github.event.inputs.dry_run || 'false' }}
+          # Admin
+          ADMIN_USER:            ${{ secrets.ADMIN_USER }}
+          ADMIN_PASS:            ${{ secrets.ADMIN_PASS }}
+          ADMIN_EMAIL:           ${{ secrets.ADMIN_EMAIL }}
+        run: |
+          echo "🌍 African Betting Intelligence Network"
+          echo "Run: $(date -u)  |  Mode: $PUBLISH_MODE"
+          python3 scheduler/run_engine.py
+
+      - name: Save data cache
+        uses: actions/cache@v4
+        if: always()
+        with:
+          path: /tmp/abin-data
+          key: abin-data-${{ github.run_id }}
+
+      - name: Upload signal queue (admin review artifacts)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: signals-${{ github.run_number }}
+          path: /tmp/abin-data/signals/
+          retention-days: 14
+
+      - name: Upload run log
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: run-log-${{ github.run_number }}
+          path: /tmp/abin-data/logs/
+          retention-days: 14
+
+      - name: Upload last_run.json summary
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: last-run-${{ github.run_number }}
+          path: /tmp/abin-data/last_run.json
+          retention-days: 7
+
+      # Notify admin via email if signals were generated (Mailgun)
+      - name: Email admin — signals pending review
+        if: success()
+        env:
+          MAILGUN_API_KEY: ${{ secrets.MAILGUN_API_KEY }}
+          MAILGUN_DOMAIN:  ${{ secrets.MAILGUN_DOMAIN }}
+          ADMIN_EMAIL:     ${{ secrets.ADMIN_EMAIL }}
+          DATA_DIR:        /tmp/abin-data
+        run: |
+          python3 -c "
+          import json, os, sys
+          from pathlib import Path
+          dd = Path(os.getenv('DATA_DIR', '/tmp/abin-data'))
+          sd = dd / 'signals'
+          if not sd.exists(): sys.exit(0)
+          pending = [json.loads(f.read_text()) for f in sd.glob('*.json')
+                     if json.loads(f.read_text()).get('status') == 'pending']
+          if not pending:
+              print('No pending signals — skipping email')
+              sys.exit(0)
+          admin_email = os.getenv('ADMIN_EMAIL', '')
+          mkey        = os.getenv('MAILGUN_API_KEY', '')
+          mdomain     = os.getenv('MAILGUN_DOMAIN', '')
+          if not admin_email or not mkey:
+              print('No admin email config — skipping')
+              sys.exit(0)
+          try:
+              import httpx
+              body = f'{len(pending)} signal(s) queued for review.\n\n'
+              for s in pending:
+                  body += f\"[{s['confidence']}/100] {s['home_team']} vs {s['away_team']} — {s['market']} {s['outcome']} @ {s['odds']}\n\"
+              r = httpx.post(
+                  f'https://api.mailgun.net/v3/{mdomain}/messages',
+                  auth=('api', mkey),
+                  data={'from': f'ABIN Engine <signals@{mdomain}>',
+                        'to': admin_email,
+                        'subject': f'ABIN: {len(pending)} signal(s) pending review',
+                        'text': body}
+              )
+              print(f'Admin email: {r.status_code}')
+          except Exception as e:
+              print(f'Email skipped: {e}')
+          "
+
+
+# ────────────────────────────────────────────────────────────────────
+# FILE 2: .github/workflows/weekly-audit.yml
+# SCHEDULE: Every Thursday 06:00 SAST (04:00 UTC)
+# PURPOSE:  Email admin the weekly audit reminder + performance digest
+# ────────────────────────────────────────────────────────────────────
+
+# name: ABIN — Weekly Audit Reminder
+#
+# on:
+#   schedule:
+#     - cron: '0 4 * * 4'   # Thursday 04:00 UTC = Thursday 06:00 SAST
+#   workflow_dispatch:
+#
+# jobs:
+#   weekly-audit-email:
+#     runs-on: ubuntu-latest
+#     timeout-minutes: 8
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: actions/setup-python@v5
+#         with: {python-version: '3.11', cache: 'pip'}
+#       - run: pip install -r requirements.txt
+#       - name: Send weekly audit email to admin
+#         env:
+#           MAILGUN_API_KEY:  ${{ secrets.MAILGUN_API_KEY }}
+#           MAILGUN_DOMAIN:   ${{ secrets.MAILGUN_DOMAIN }}
+#           ADMIN_EMAIL:      ${{ secrets.ADMIN_EMAIL }}
+#           SITE_URL:         ${{ secrets.SITE_URL }}
+#           DATA_DIR:         /tmp/abin-data
+#           BOT_TOKEN:        ${{ secrets.BOT_TOKEN }}
+#           CHANNEL_ID:       ${{ secrets.CHANNEL_ID }}
+#         run: python3 scheduler/weekly_summary.py
+
+
+# ────────────────────────────────────────────────────────────────────
+# FILE 3: .github/workflows/weekly-reset.yml
+# SCHEDULE: Every Monday 00:00 SAST (Sunday 22:00 UTC)
+# PURPOSE:  Reset the weekly signal counter for the new week
+# ────────────────────────────────────────────────────────────────────
+
+# name: ABIN — Weekly Counter Reset
+#
+# on:
+#   schedule:
+#     - cron: '0 22 * * 0'   # Sunday 22:00 UTC = Monday 00:00 SAST
+#   workflow_dispatch:
+#
+# jobs:
+#   weekly-reset:
+#     runs-on: ubuntu-latest
+#     timeout-minutes: 5
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: actions/setup-python@v5
+#         with: {python-version: '3.11'}
+#       - name: Reset weekly signal counter
+#         env:
+#           DATA_DIR: /tmp/abin-data
+#         run: |
+#           python3 -c "
+#           import json
+#           from pathlib import Path
+#           from datetime import datetime, timezone, timedelta
+#           dd = Path('/tmp/abin-data')
+#           dd.mkdir(parents=True, exist_ok=True)
+#           path = dd / 'weekly_counts.json'
+#           data = json.loads(path.read_text()) if path.exists() else {}
+#           today = datetime.now(timezone.utc)
+#           monday = today - timedelta(days=today.weekday())
+#           week_key = monday.strftime('%Y-W%V')
+#           data.setdefault(week_key, 0)
+#           path.write_text(json.dumps(data, indent=2))
+#           print(f'Week {week_key} counter ready: {data[week_key]} signals so far')
+#           "
+#           echo "Weekly counter reset complete."
+
+
+# ────────────────────────────────────────────────────────────────────
+# FILE 4: .github/workflows/intl-window.yml
+# SCHEDULE: Manual trigger only
+# PURPOSE:  Activate/deactivate AFCON Qualifier monitoring
+#           Run at the start and end of each international window
+# ────────────────────────────────────────────────────────────────────
+
+# name: ABIN — International Window Toggle
+#
+# on:
+#   workflow_dispatch:
+#     inputs:
+#       action:
+#         description: 'Action'
+#         required: true
+#         type: choice
+#         options:
+#           - activate_international
+#           - deactivate_international
+#
+# jobs:
+#   toggle:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: actions/setup-python@v5
+#         with: {python-version: '3.11'}
+#       - name: Toggle international window
+#         run: |
+#           if [ "${{ github.event.inputs.action }}" == "activate_international" ]; then
+#             echo "International window ACTIVATED — AFCON Qualifiers now included"
+#           else
+#             echo "International window DEACTIVATED — club competitions only"
+#           fi
